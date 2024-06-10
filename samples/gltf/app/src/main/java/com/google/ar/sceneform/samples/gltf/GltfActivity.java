@@ -37,15 +37,19 @@ import com.google.ar.core.HitResult;
 import com.google.ar.core.Plane;
 import com.google.ar.sceneform.AnchorNode;
 import com.google.ar.sceneform.Node;
+import com.google.ar.sceneform.math.Quaternion;
 import com.google.ar.sceneform.math.Vector3;
 import com.google.ar.sceneform.rendering.Color;
 import com.google.ar.sceneform.rendering.Material;
+import com.google.ar.sceneform.rendering.MaterialFactory;
 import com.google.ar.sceneform.rendering.ModelRenderable;
 import com.google.ar.sceneform.rendering.Renderable;
+import com.google.ar.sceneform.rendering.ShapeFactory;
 import com.google.ar.sceneform.rendering.ViewRenderable;
 import com.google.ar.sceneform.ux.ArFragment;
 import com.google.ar.sceneform.ux.TransformableNode;
 import java.lang.ref.WeakReference;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
@@ -87,6 +91,7 @@ public class GltfActivity extends AppCompatActivity {
           new Color(1, 0, 1, 1),
           new Color(1, 1, 1, 1));
   private int nextColor = 0;
+  private ArrayList<Anchor> anchors = new ArrayList<>();
 
   @Override
   @SuppressWarnings({"AndroidApiChecker", "FutureReturnValueIgnored"})
@@ -137,7 +142,7 @@ public class GltfActivity extends AppCompatActivity {
           Anchor anchor = hitResult.createAnchor();
           AnchorNode anchorNode = new AnchorNode(anchor);
           anchorNode.setParent(arFragment.getArSceneView().getScene());
-
+          anchors.add(anchor);
           // Create the transformable model and add it to the anchor.
           TransformableNode model = new TransformableNode(arFragment.getTransformationSystem());
           model.setParent(anchorNode);
@@ -173,6 +178,11 @@ public class GltfActivity extends AppCompatActivity {
                               throw new AssertionError("Could not load card view.", throwable);
                           }
                   );
+
+            // If there are two anchors, draw a line between them
+            if (anchors.size() == 2) {
+                drawLine(anchors.get(0), anchors.get(1));
+            }
         });
 
     arFragment
@@ -191,7 +201,27 @@ public class GltfActivity extends AppCompatActivity {
             });
   }
 
-  /**
+    private void drawLine(Anchor anchor1, Anchor anchor2) {
+        Vector3 point1 = new AnchorNode(anchor1).getWorldPosition();
+        Vector3 point2 = new AnchorNode(anchor2).getWorldPosition();
+
+        MaterialFactory.makeOpaqueWithColor(this, new Color(android.graphics.Color.RED))
+                .thenAccept(
+                        material -> {
+                            ModelRenderable modelRenderable = ShapeFactory.makeCube(
+                                    new Vector3(.01f, .01f, Vector3.subtract(point1, point2).length()),
+                                    Vector3.zero(), material);
+
+                            AnchorNode node = new AnchorNode();
+                            node.setRenderable(modelRenderable);
+                            node.setWorldPosition(Vector3.add(point1, point2).scaled(.5f));
+                            node.setWorldRotation(Quaternion.lookRotation(Vector3.subtract(point2, point1), Vector3.up()));
+
+                            arFragment.getArSceneView().getScene().addChild(node);
+                        });
+    }
+
+    /**
    * Returns false and displays an error message if Sceneform can not run, true if Sceneform can run
    * on this device.
    *
