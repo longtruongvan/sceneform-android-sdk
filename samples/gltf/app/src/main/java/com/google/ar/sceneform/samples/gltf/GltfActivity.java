@@ -147,6 +147,13 @@ public class GltfActivity extends AppCompatActivity {
           TransformableNode model = new TransformableNode(arFragment.getTransformationSystem());
           model.setParent(anchorNode);
           model.setRenderable(renderable);
+
+            model.setWorldScale(new Vector3(0.3f, 0.3f, 0.3f)); // Thiết lập kích thước ban đầu
+            model.getScaleController().setMinScale(0.1f); // Thiết lập kích thước tối thiểu
+            model.getScaleController().setMaxScale(1.0f); // Thiết lập kích thước tối đa
+
+            arFragment.getArSceneView().getScene().addChild(anchorNode);
+
           model.select();
 
           FilamentAsset filamentAsset = model.getRenderableInstance().getFilamentAsset();
@@ -200,6 +207,18 @@ public class GltfActivity extends AppCompatActivity {
               }
             });
   }
+
+    private void addModelToScene(Anchor anchor, ModelRenderable modelRenderable) {
+        AnchorNode anchorNode = new AnchorNode(anchor);
+        TransformableNode transformableNode = new TransformableNode(arFragment.getTransformationSystem());
+        transformableNode.setParent(anchorNode);
+        transformableNode.setRenderable(modelRenderable);
+        transformableNode.getScaleController().setMinScale(0.1f); // Thiết lập kích thước tối thiểu
+        transformableNode.getScaleController().setMaxScale(1.0f); // Thiết lập kích thước tối đa
+        transformableNode.setWorldScale(new Vector3(0.5f, 0.5f, 0.5f)); // Thiết lập kích thước ban đầu
+        arFragment.getArSceneView().getScene().addChild(anchorNode);
+        transformableNode.select();
+    }
 
     private void drawLine(Anchor anchor1, Anchor anchor2) {
         Vector3 point1 = new AnchorNode(anchor1).getWorldPosition();
