@@ -36,6 +36,7 @@ import com.google.android.filament.gltfio.FilamentAsset;
 import com.google.ar.core.Anchor;
 import com.google.ar.core.HitResult;
 import com.google.ar.core.Plane;
+import com.google.ar.core.TrackingState;
 import com.google.ar.sceneform.AnchorNode;
 import com.google.ar.sceneform.Node;
 import com.google.ar.sceneform.math.Quaternion;
@@ -52,6 +53,7 @@ import com.google.ar.sceneform.ux.TransformableNode;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 
@@ -64,6 +66,7 @@ public class GltfActivity extends AppCompatActivity {
 
   private ArFragment arFragment;
   private Renderable renderable;
+  private ArrayList<AnchorNode> previewAnchors = new ArrayList<>(); // Biến lưu trữ AnchorNode hiện tại
 
   private static class AnimationInstance {
     Animator animator;
@@ -207,8 +210,67 @@ public class GltfActivity extends AppCompatActivity {
                         % animator.duration);
                 animator.animator.updateBoneMatrices();
               }
+
+              if(anchors.isEmpty()){
+                  return;
+              }
+
+                // Xoá toàn bộ AnchorNode cũ nếu có
+                removeAllAnchorNodes();
+
+                // Lấy mặt phẳng hiện tại được detect bởi ARCore
+                Collection<Plane> planes = arFragment.getArSceneView().getSession().getAllTrackables(Plane.class);
+
+                // Hiển thị anchor preview tại vị trí và hướng của mặt phẳng đầu tiên được detect (nếu có)
+                for (Plane plane : planes) {
+                    if (plane.getTrackingState() == TrackingState.TRACKING) {
+
+                        // Tạo một anchor tại vị trí của mặt phẳng
+                        Anchor anchor = plane.createAnchor(plane.getCenterPose());
+
+                        // Tạo đối tượng preview
+                        MaterialFactory.makeOpaqueWithColor(this, new Color(android.graphics.Color.RED))
+                                .thenAccept(material -> {
+                                    ModelRenderable modelRenderable = ShapeFactory.makeCube(
+                                            new Vector3(new Vector3(0.1f, 0.1f, 0.1f)), // Kích thước của hộp dựa trên mặt phẳng
+                                            Vector3.zero(), // Vị trí tương đối so với anchor
+                                            material); // Vật liệu
+
+                                    // Tạo AnchorNode cho đối tượng preview
+                                    AnchorNode anchorNode = new AnchorNode(anchor);
+                                    anchorNode.setRenderable(modelRenderable); // Đặt renderable cho AnchorNode
+
+                                    // Tạo TransformableNode từ AnchorNode để có thể di chuyển và scale
+                                    TransformableNode transformableNode = new TransformableNode(arFragment.getTransformationSystem());
+                                    transformableNode.setParent(anchorNode);
+                                    transformableNode.setRenderable(modelRenderable);
+                                    transformableNode.setWorldScale(new Vector3(0.3f, 0.3f, 0.3f)); // Thiết lập kích thước ban đầu
+                                    transformableNode.getScaleController().setMinScale(0.1f); // Thiết lập kích thước tối thiểu
+                                    transformableNode.getScaleController().setMaxScale(1.0f); // Thiết lập kích thước tối đa
+                                    // Thêm AnchorNode vào Scene
+                                    arFragment.getArSceneView().getScene().addChild(anchorNode);
+
+                                    // Lưu trữ AnchorNode hiện tại
+                                    previewAnchors.add(anchorNode);
+                                });
+
+                        // Chỉ xử lý mặt phẳng đầu tiên được detect
+                        break;
+                    }
+                }
             });
   }
+
+    private void removeAllAnchorNodes() {
+        // Lặp qua tất cả các node trong Scene và xoá các AnchorNode
+        for (Node node : previewAnchors) {
+            if (node instanceof AnchorNode) {
+                arFragment.getArSceneView().getScene().removeChild(node);
+                ((AnchorNode) node).getAnchor().detach(); // Detach anchor để giải phóng tài nguyên
+                node.setParent(null); // Xóa parent của node
+            }
+        }
+    }
 
     private void drawLineWithText(Anchor anchor1, Anchor anchor2) {
         Vector3 start = new AnchorNode(anchor1).getWorldPosition();
