@@ -29,6 +29,7 @@ import android.util.ArraySet;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.MotionEvent;
+import android.widget.TextView;
 import android.widget.Toast;
 import com.google.android.filament.gltfio.Animator;
 import com.google.android.filament.gltfio.FilamentAsset;
@@ -188,7 +189,8 @@ public class GltfActivity extends AppCompatActivity {
 
             // If there are two anchors, draw a line between them
             if (anchors.size() == 2) {
-                drawLine(anchors.get(0), anchors.get(1));
+//                drawLine(anchors.get(0), anchors.get(1));
+                drawLineWithText(anchors.get(0), anchors.get(1));
             }
         });
 
@@ -207,6 +209,48 @@ public class GltfActivity extends AppCompatActivity {
               }
             });
   }
+
+    private void drawLineWithText(Anchor anchor1, Anchor anchor2) {
+        Vector3 start = new AnchorNode(anchor1).getWorldPosition();
+        Vector3 end = new AnchorNode(anchor2).getWorldPosition();
+        // Tính toán khoảng cách giữa hai anchor
+        float distance = Vector3.subtract(end, start).length();
+
+        // Tạo AnchorNode cho đoạn thẳng
+        MaterialFactory.makeOpaqueWithColor(this, new Color(android.graphics.Color.RED))
+                .thenAccept(
+                        material -> {
+                            ModelRenderable modelRenderable = ShapeFactory.makeCube(
+                                    new Vector3(.01f, .01f, distance),
+                                    Vector3.zero(), material);
+
+                            AnchorNode lineNode = new AnchorNode();
+                            lineNode.setRenderable(modelRenderable);
+                            lineNode.setParent(arFragment.getArSceneView().getScene());
+                            lineNode.setWorldPosition(Vector3.add(start, end).scaled(.5f));
+                            lineNode.setWorldRotation(Quaternion.lookRotation(Vector3.subtract(end, start), Vector3.up()));
+
+                            // Tạo AnchorNode cho BillboardNode (văn bản)
+                            AnchorNode textNode = new AnchorNode();
+                            textNode.setParent(arFragment.getArSceneView().getScene());
+                            textNode.setWorldPosition(Vector3.add(start, end).scaled(.5f)); // Đặt vị trí giữa hai anchor
+
+                            // Tạo BillboardNode để chứa văn bản
+                            ViewRenderable.builder()
+                                    .setView(this, R.layout.text_layout) // layout của văn bản
+                                    .build()
+                                    .thenAccept(viewRenderable -> {
+                                        // Đặt văn bản vào BillboardNode
+                                        Node textView = new Node();
+                                        textView.setParent(textNode);
+                                        textView.setRenderable(viewRenderable);
+
+                                        // Đặt văn bản cho khoảng cách giữa hai anchor
+                                        TextView distanceTextView = viewRenderable.getView().findViewById(R.id.distanceTextView);
+                                        distanceTextView.setText(String.format("%.2f meters", distance));
+                                    });
+                        });
+    }
 
     private void addModelToScene(Anchor anchor, ModelRenderable modelRenderable) {
         AnchorNode anchorNode = new AnchorNode(anchor);
