@@ -34,8 +34,11 @@ import android.widget.Toast;
 import com.google.android.filament.gltfio.Animator;
 import com.google.android.filament.gltfio.FilamentAsset;
 import com.google.ar.core.Anchor;
+import com.google.ar.core.Config;
 import com.google.ar.core.HitResult;
 import com.google.ar.core.Plane;
+import com.google.ar.core.Pose;
+import com.google.ar.core.Trackable;
 import com.google.ar.core.TrackingState;
 import com.google.ar.sceneform.AnchorNode;
 import com.google.ar.sceneform.Node;
@@ -49,6 +52,7 @@ import com.google.ar.sceneform.rendering.Renderable;
 import com.google.ar.sceneform.rendering.ShapeFactory;
 import com.google.ar.sceneform.rendering.ViewRenderable;
 import com.google.ar.sceneform.ux.ArFragment;
+import com.google.ar.sceneform.ux.BaseArFragment;
 import com.google.ar.sceneform.ux.TransformableNode;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
@@ -135,73 +139,140 @@ public class GltfActivity extends AppCompatActivity {
               toast.show();
               return null;
             });
+//
+//    arFragment.setOnTapArPlaneListener(
+//        (HitResult hitResult, Plane plane, MotionEvent motionEvent) -> {
+//
+//        });
+      arFragment.setOnTapArPlaneListener(new BaseArFragment.OnTapArPlaneListener() {
+          @Override
+          public void onTapPlane(HitResult hitResult, Plane plane, MotionEvent motionEvent) {
+              if (renderable == null) {
+                  return;
+              }
 
-    arFragment.setOnTapArPlaneListener(
-        (HitResult hitResult, Plane plane, MotionEvent motionEvent) -> {
-          if (renderable == null) {
-            return;
-          }
+              // Create the Anchor.
+              Anchor anchor = hitResult.createAnchor();
+              AnchorNode anchorNode = new AnchorNode(anchor);
+              anchorNode.setParent(arFragment.getArSceneView().getScene());
+              anchors.add(anchor);
+              // Create the transformable model and add it to the anchor.
+              TransformableNode model = new TransformableNode(arFragment.getTransformationSystem());
+              model.setParent(anchorNode);
+              model.setRenderable(renderable);
 
-          // Create the Anchor.
-          Anchor anchor = hitResult.createAnchor();
-          AnchorNode anchorNode = new AnchorNode(anchor);
-          anchorNode.setParent(arFragment.getArSceneView().getScene());
-          anchors.add(anchor);
-          // Create the transformable model and add it to the anchor.
-          TransformableNode model = new TransformableNode(arFragment.getTransformationSystem());
-          model.setParent(anchorNode);
-          model.setRenderable(renderable);
+              model.setWorldScale(new Vector3(0.3f, 0.3f, 0.3f)); // Thiết lập kích thước ban đầu
+              model.getScaleController().setMinScale(0.1f); // Thiết lập kích thước tối thiểu
+              model.getScaleController().setMaxScale(1.0f); // Thiết lập kích thước tối đa
 
-            model.setWorldScale(new Vector3(0.3f, 0.3f, 0.3f)); // Thiết lập kích thước ban đầu
-            model.getScaleController().setMinScale(0.1f); // Thiết lập kích thước tối thiểu
-            model.getScaleController().setMaxScale(1.0f); // Thiết lập kích thước tối đa
+              arFragment.getArSceneView().getScene().addChild(anchorNode);
 
-            arFragment.getArSceneView().getScene().addChild(anchorNode);
+              model.select();
 
-          model.select();
+              FilamentAsset filamentAsset = model.getRenderableInstance().getFilamentAsset();
+              if (filamentAsset.getAnimator().getAnimationCount() > 0) {
+                  animators.add(new AnimationInstance(filamentAsset.getAnimator(), 0, System.nanoTime()));
+              }
 
-          FilamentAsset filamentAsset = model.getRenderableInstance().getFilamentAsset();
-          if (filamentAsset.getAnimator().getAnimationCount() > 0) {
-            animators.add(new AnimationInstance(filamentAsset.getAnimator(), 0, System.nanoTime()));
-          }
+              Color color = colors.get(nextColor);
+              nextColor++;
+              for (int i = 0; i < renderable.getSubmeshCount(); ++i) {
+                  Material material = renderable.getMaterial(i);
+                  material.setFloat4("baseColorFactor", color);
+              }
 
-          Color color = colors.get(nextColor);
-          nextColor++;
-          for (int i = 0; i < renderable.getSubmeshCount(); ++i) {
-            Material material = renderable.getMaterial(i);
-            material.setFloat4("baseColorFactor", color);
-          }
+              Node tigerTitleNode = new Node();
+              tigerTitleNode.setParent(model);
+              tigerTitleNode.setEnabled(false);
+              tigerTitleNode.setLocalPosition(new Vector3(0.0f, 1.0f, 0.0f));
+              ViewRenderable.builder()
+                      .setView(weakActivity.get(), R.layout.tiger_card_view)
+                      .build()
+                      .thenAccept(
+                              (renderable) -> {
+                                  tigerTitleNode.setRenderable(renderable);
+                                  tigerTitleNode.setEnabled(true);
+                              })
+                      .exceptionally(
+                              (throwable) -> {
+                                  throw new AssertionError("Could not load card view.", throwable);
+                              }
+                      );
 
-          Node tigerTitleNode = new Node();
-          tigerTitleNode.setParent(model);
-          tigerTitleNode.setEnabled(false);
-          tigerTitleNode.setLocalPosition(new Vector3(0.0f, 1.0f, 0.0f));
-          ViewRenderable.builder()
-                  .setView(this, R.layout.tiger_card_view)
-                  .build()
-                  .thenAccept(
-                          (renderable) -> {
-                              tigerTitleNode.setRenderable(renderable);
-                              tigerTitleNode.setEnabled(true);
-                          })
-                  .exceptionally(
-                          (throwable) -> {
-                              throw new AssertionError("Could not load card view.", throwable);
-                          }
-                  );
-
-            // If there are two anchors, draw a line between them
-            if (anchors.size() == 2) {
+              // If there are two anchors, draw a line between them
+              if (anchors.size() == 2) {
 //                drawLine(anchors.get(0), anchors.get(1));
-                drawLineWithText(anchors.get(0), anchors.get(1));
-            }
-        });
+                  drawLineWithText(anchors.get(0), anchors.get(1));
+              }
+          }
+
+          @Override
+          public void onCreateAnchor(Anchor anchor, Trackable trackable) {
+              AnchorNode anchorNode = new AnchorNode(anchor);
+              anchorNode.setParent(arFragment.getArSceneView().getScene());
+              anchors.add(anchor);
+              // Create the transformable model and add it to the anchor.
+              TransformableNode model = new TransformableNode(arFragment.getTransformationSystem());
+              model.setParent(anchorNode);
+              model.setRenderable(renderable);
+
+              model.setWorldScale(new Vector3(0.3f, 0.3f, 0.3f)); // Thiết lập kích thước ban đầu
+              model.getScaleController().setMinScale(0.1f); // Thiết lập kích thước tối thiểu
+              model.getScaleController().setMaxScale(1.0f); // Thiết lập kích thước tối đa
+
+              arFragment.getArSceneView().getScene().addChild(anchorNode);
+
+              model.select();
+
+              FilamentAsset filamentAsset = model.getRenderableInstance().getFilamentAsset();
+              if (filamentAsset.getAnimator().getAnimationCount() > 0) {
+                  animators.add(new AnimationInstance(filamentAsset.getAnimator(), 0, System.nanoTime()));
+              }
+
+              Color color = colors.get(nextColor);
+              nextColor++;
+              for (int i = 0; i < renderable.getSubmeshCount(); ++i) {
+                  Material material = renderable.getMaterial(i);
+                  material.setFloat4("baseColorFactor", color);
+              }
+
+              Node tigerTitleNode = new Node();
+              tigerTitleNode.setParent(model);
+              tigerTitleNode.setEnabled(false);
+              tigerTitleNode.setLocalPosition(new Vector3(0.0f, 1.0f, 0.0f));
+              ViewRenderable.builder()
+                      .setView(weakActivity.get(), R.layout.tiger_card_view)
+                      .build()
+                      .thenAccept(
+                              (renderable) -> {
+                                  tigerTitleNode.setRenderable(renderable);
+                                  tigerTitleNode.setEnabled(true);
+                              })
+                      .exceptionally(
+                              (throwable) -> {
+                                  throw new AssertionError("Could not load card view.", throwable);
+                              }
+                      );
+
+              // If there are two anchors, draw a line between them
+              if (anchors.size() == 2) {
+//                drawLine(anchors.get(0), anchors.get(1));
+                  drawLineWithText(anchors.get(0), anchors.get(1));
+              }
+          }
+      });
 
     arFragment
         .getArSceneView()
         .getScene()
         .addOnUpdateListener(
             frameTime -> {
+                if(arFragment.getArSceneView().getSession()!=null){
+                    Config config = arFragment.getArSceneView().getSession().getConfig();
+                    config.setPlaneFindingMode(Config.PlaneFindingMode.HORIZONTAL_AND_VERTICAL);
+                    arFragment.getArSceneView().getSession().configure(config);
+                }
+
               Long time = System.nanoTime();
               for (AnimationInstance animator : animators) {
                 animator.animator.applyAnimation(
@@ -215,49 +286,52 @@ public class GltfActivity extends AppCompatActivity {
                   return;
               }
 
-                // Xoá toàn bộ AnchorNode cũ nếu có
-                removeAllAnchorNodes();
-
-                // Lấy mặt phẳng hiện tại được detect bởi ARCore
-                Collection<Plane> planes = arFragment.getArSceneView().getSession().getAllTrackables(Plane.class);
-
-                // Hiển thị anchor preview tại vị trí và hướng của mặt phẳng đầu tiên được detect (nếu có)
-                for (Plane plane : planes) {
-                    if (plane.getTrackingState() == TrackingState.TRACKING) {
-
-                        // Tạo một anchor tại vị trí của mặt phẳng
-                        Anchor anchor = plane.createAnchor(plane.getCenterPose());
-
-                        // Tạo đối tượng preview
-                        MaterialFactory.makeOpaqueWithColor(this, new Color(android.graphics.Color.RED))
-                                .thenAccept(material -> {
-                                    ModelRenderable modelRenderable = ShapeFactory.makeCube(
-                                            new Vector3(new Vector3(0.1f, 0.1f, 0.1f)), // Kích thước của hộp dựa trên mặt phẳng
-                                            Vector3.zero(), // Vị trí tương đối so với anchor
-                                            material); // Vật liệu
-
-                                    // Tạo AnchorNode cho đối tượng preview
-                                    AnchorNode anchorNode = new AnchorNode(anchor);
-                                    anchorNode.setRenderable(modelRenderable); // Đặt renderable cho AnchorNode
-
-                                    // Tạo TransformableNode từ AnchorNode để có thể di chuyển và scale
-                                    TransformableNode transformableNode = new TransformableNode(arFragment.getTransformationSystem());
-                                    transformableNode.setParent(anchorNode);
-                                    transformableNode.setRenderable(modelRenderable);
-                                    transformableNode.setWorldScale(new Vector3(0.3f, 0.3f, 0.3f)); // Thiết lập kích thước ban đầu
-                                    transformableNode.getScaleController().setMinScale(0.1f); // Thiết lập kích thước tối thiểu
-                                    transformableNode.getScaleController().setMaxScale(1.0f); // Thiết lập kích thước tối đa
-                                    // Thêm AnchorNode vào Scene
-                                    arFragment.getArSceneView().getScene().addChild(anchorNode);
-
-                                    // Lưu trữ AnchorNode hiện tại
-                                    previewAnchors.add(anchorNode);
-                                });
-
-                        // Chỉ xử lý mặt phẳng đầu tiên được detect
-                        break;
-                    }
-                }
+//                // Xoá toàn bộ AnchorNode cũ nếu có
+//                removeAllAnchorNodes();
+//
+//                // Lấy mặt phẳng hiện tại được detect bởi ARCore
+//                Collection<Plane> planes = arFragment.getArSceneView().getSession().getAllTrackables(Plane.class);
+//                Pose cameraPose = arFragment.getArSceneView().getScene().getCamera().getPose();
+//
+//                // Hiển thị anchor preview tại vị trí và hướng của mặt phẳng đầu tiên được detect (nếu có)
+//                for (Plane plane : planes) {
+//                    if (plane.getTrackingState() == TrackingState.TRACKING) {
+//
+//                        Pose anchorPose = Pose.makeTranslation(cameraPose.tx(), cameraPose.ty(), cameraPose.tz() - 1.0f); // Ví dụ: dịch lùi 1 mét
+//
+//                        // Tạo một anchor tại vị trí tính toán
+//                        Anchor anchor = plane.createAnchor(anchorPose);
+//
+//                        // Tạo đối tượng preview
+//                        MaterialFactory.makeOpaqueWithColor(this, new Color(android.graphics.Color.RED))
+//                                .thenAccept(material -> {
+//                                    ModelRenderable modelRenderable = ShapeFactory.makeCube(
+//                                            new Vector3(new Vector3(0.1f, 0.1f, 0.1f)), // Kích thước của hộp dựa trên mặt phẳng
+//                                            Vector3.zero(), // Vị trí tương đối so với anchor
+//                                            material); // Vật liệu
+//
+//                                    // Tạo AnchorNode cho đối tượng preview
+//                                    AnchorNode anchorNode = new AnchorNode(anchor);
+//                                    anchorNode.setRenderable(modelRenderable); // Đặt renderable cho AnchorNode
+//
+//                                    // Tạo TransformableNode từ AnchorNode để có thể di chuyển và scale
+//                                    TransformableNode transformableNode = new TransformableNode(arFragment.getTransformationSystem());
+//                                    transformableNode.setParent(anchorNode);
+//                                    transformableNode.setRenderable(modelRenderable);
+//                                    transformableNode.setWorldScale(new Vector3(0.3f, 0.3f, 0.3f)); // Thiết lập kích thước ban đầu
+//                                    transformableNode.getScaleController().setMinScale(0.1f); // Thiết lập kích thước tối thiểu
+//                                    transformableNode.getScaleController().setMaxScale(1.0f); // Thiết lập kích thước tối đa
+//                                    // Thêm AnchorNode vào Scene
+//                                    arFragment.getArSceneView().getScene().addChild(anchorNode);
+//
+//                                    // Lưu trữ AnchorNode hiện tại
+//                                    previewAnchors.add(anchorNode);
+//                                });
+//
+//                        // Chỉ xử lý mặt phẳng đầu tiên được detect
+//                        break;
+//                    }
+//                }
             });
   }
 

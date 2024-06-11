@@ -30,6 +30,7 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentActivity;
 import android.support.v4.content.ContextCompat;
+import android.util.Log;
 import android.view.GestureDetector;
 import android.view.Gravity;
 import android.view.LayoutInflater;
@@ -40,11 +41,14 @@ import android.view.ViewTreeObserver.OnWindowFocusChangeListener;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.Toast;
+
+import com.google.ar.core.Anchor;
 import com.google.ar.core.ArCoreApk;
 import com.google.ar.core.Config;
 import com.google.ar.core.Frame;
 import com.google.ar.core.HitResult;
 import com.google.ar.core.Plane;
+import com.google.ar.core.Point;
 import com.google.ar.core.Session;
 import com.google.ar.core.Trackable;
 import com.google.ar.core.TrackingState;
@@ -93,6 +97,8 @@ public abstract class BaseArFragment extends Fragment
      * @param motionEvent the motion event that triggered the tap
      */
     void onTapPlane(HitResult hitResult, Plane plane, MotionEvent motionEvent);
+
+    void onCreateAnchor(Anchor anchor, Trackable trackable);
   }
 
   private static final int RC_PERMISSIONS = 1010;
@@ -568,6 +574,14 @@ public abstract class BaseArFragment extends Fragment
   private void onSingleTap(MotionEvent motionEvent) {
     Frame frame = arSceneView.getArFrame();
 
+    List<HitResult> hitResultList = frame.hitTest(motionEvent);
+    if (hitResultList != null && !hitResultList.isEmpty()) {
+      for (int i = 0; i < hitResultList.size(); i++) {
+        HitResult hitResult = hitResultList.get(i);
+        Anchor anchor = hitResult.createAnchor();
+        Log.d("LONGTVZZZZZZZZZ", anchor.getCloudAnchorId());
+      }
+    }
     transformationSystem.selectNode(null);
 
     // Local variable for nullness static-analysis.
@@ -577,11 +591,16 @@ public abstract class BaseArFragment extends Fragment
       if (motionEvent != null && frame.getCamera().getTrackingState() == TrackingState.TRACKING) {
         for (HitResult hit : frame.hitTest(motionEvent)) {
           Trackable trackable = hit.getTrackable();
-          if (trackable instanceof Plane && ((Plane) trackable).isPoseInPolygon(hit.getHitPose())) {
+          if(trackable instanceof  Plane){
             Plane plane = (Plane) trackable;
             onTapArPlaneListener.onTapPlane(hit, plane, motionEvent);
             break;
+          }else if(trackable instanceof Trackable){
+            Anchor anchor = hit.createAnchor();
+            onTapArPlaneListener.onCreateAnchor(anchor,trackable);
+            break;
           }
+
         }
       }
     }
