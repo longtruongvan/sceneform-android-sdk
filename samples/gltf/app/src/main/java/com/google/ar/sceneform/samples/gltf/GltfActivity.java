@@ -17,6 +17,7 @@ package com.google.ar.sceneform.samples.gltf;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.ActivityManager;
 import android.content.Context;
@@ -27,21 +28,26 @@ import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.util.ArraySet;
 import android.util.Log;
+import android.view.GestureDetector;
 import android.view.Gravity;
 import android.view.MotionEvent;
+import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
 import com.google.android.filament.gltfio.Animator;
 import com.google.android.filament.gltfio.FilamentAsset;
 import com.google.ar.core.Anchor;
 import com.google.ar.core.Config;
+import com.google.ar.core.Frame;
 import com.google.ar.core.HitResult;
 import com.google.ar.core.Plane;
 import com.google.ar.core.Pose;
 import com.google.ar.core.Trackable;
 import com.google.ar.core.TrackingState;
 import com.google.ar.sceneform.AnchorNode;
+import com.google.ar.sceneform.HitTestResult;
 import com.google.ar.sceneform.Node;
+import com.google.ar.sceneform.Scene;
 import com.google.ar.sceneform.math.Quaternion;
 import com.google.ar.sceneform.math.Vector3;
 import com.google.ar.sceneform.rendering.Color;
@@ -116,6 +122,7 @@ public class GltfActivity extends AppCompatActivity {
   private ArrayList<Anchor> anchors = new ArrayList<>();
   private ArrayList<LineRenderable> lines = new ArrayList<>(); // Lưu trữ thông tin về các đoạn thẳng
 
+  @SuppressLint("ClickableViewAccessibility")
   @Override
   @SuppressWarnings({"AndroidApiChecker", "FutureReturnValueIgnored"})
   // CompletableFuture requires api level 24
@@ -171,6 +178,10 @@ public class GltfActivity extends AppCompatActivity {
               AnchorNode anchorNode = new AnchorNode(anchor);
               anchorNode.setParent(arFragment.getArSceneView().getScene());
               anchors.add(anchor);
+
+              // Update selectedAnchorNode
+              selectedAnchorNode = anchorNode;
+
               // Create the transformable model and add it to the anchor.
               TransformableNode model = new TransformableNode(arFragment.getTransformationSystem());
               model.setParent(anchorNode);
@@ -284,6 +295,36 @@ public class GltfActivity extends AppCompatActivity {
           }
       });
 
+      arFragment.getArSceneView().getScene().setOnTouchListener(new Scene.OnTouchListener() {
+          @Override
+          public boolean onSceneTouch(HitTestResult hitTestResult, MotionEvent motionEvent) {
+              if(motionEvent.getAction() == MotionEvent.ACTION_DOWN){
+                  return false;
+              }
+
+              if(motionEvent.getAction() == MotionEvent.ACTION_UP){
+                  return false;
+              }
+
+              if(motionEvent.getAction() == MotionEvent.ACTION_MOVE){
+                  MotionEvent tap = MotionEvent.obtain(motionEvent.getDownTime(), motionEvent.getEventTime(), MotionEvent.ACTION_DOWN, motionEvent.getX(), motionEvent.getY(), 0);
+                  Frame frame = arFragment.getArSceneView().getArFrame();
+                  if (frame != null) {
+                      List<HitResult> hitResults = frame.hitTest(tap);
+                      if (!hitResults.isEmpty()) {
+                          HitResult hitResult = hitResults.get(0);
+                          Anchor newAnchor = hitResult.createAnchor();
+                          if (selectedAnchorNode != null) {
+                              selectedAnchorNode.setAnchor(newAnchor);
+                          }
+                      }
+                  }
+              }
+
+              return false;
+          }
+      });
+
     arFragment
         .getArSceneView()
         .getScene()
@@ -361,6 +402,26 @@ public class GltfActivity extends AppCompatActivity {
 //                }
             });
   }
+
+    AnchorNode selectedAnchorNode;
+//    GestureDetector gestureDetector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
+//        @Override
+//        public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
+//            MotionEvent tap = MotionEvent.obtain(e2.getDownTime(), e2.getEventTime(), MotionEvent.ACTION_DOWN, e2.getX(), e2.getY(), 0);
+//            Frame frame = arFragment.getArSceneView().getArFrame();
+//            if (frame != null) {
+//                List<HitResult> hitResults = frame.hitTest(tap);
+//                if (!hitResults.isEmpty()) {
+//                    HitResult hitResult = hitResults.get(0);
+//                    Anchor newAnchor = hitResult.createAnchor();
+//                    if (selectedAnchorNode != null) {
+//                        selectedAnchorNode.setAnchor(newAnchor);
+//                    }
+//                }
+//            }
+//            return true;
+//        }
+//    });
 
     private void updateLine(LineRenderable line) {
         Vector3 start = line.startNode.getWorldPosition();
