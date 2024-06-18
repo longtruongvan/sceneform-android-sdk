@@ -72,6 +72,20 @@ public class GltfActivity extends AppCompatActivity {
   private Renderable renderable;
   private ArrayList<AnchorNode> previewAnchors = new ArrayList<>(); // Biến lưu trữ AnchorNode hiện tại
 
+    private static class LineRenderable {
+        AnchorNode startNode;
+        AnchorNode endNode;
+        AnchorNode lineNode;
+        ModelRenderable modelRenderable;
+
+        LineRenderable(AnchorNode startNode, AnchorNode endNode, AnchorNode lineNode, ModelRenderable modelRenderable) {
+            this.startNode = startNode;
+            this.endNode = endNode;
+            this.lineNode = lineNode;
+            this.modelRenderable = modelRenderable;
+        }
+    }
+
   private static class AnimationInstance {
     Animator animator;
     Long startTime;
@@ -100,6 +114,7 @@ public class GltfActivity extends AppCompatActivity {
           new Color(1, 1, 1, 1));
   private int nextColor = 0;
   private ArrayList<Anchor> anchors = new ArrayList<>();
+  private ArrayList<LineRenderable> lines = new ArrayList<>(); // Lưu trữ thông tin về các đoạn thẳng
 
   @Override
   @SuppressWarnings({"AndroidApiChecker", "FutureReturnValueIgnored"})
@@ -289,6 +304,11 @@ public class GltfActivity extends AppCompatActivity {
                 animator.animator.updateBoneMatrices();
               }
 
+                // Cập nhật vị trí của các đoạn thẳng
+                for (LineRenderable line : lines) {
+                    updateLine(line);
+                }
+
               if(anchors.isEmpty()){
                   return;
               }
@@ -342,6 +362,54 @@ public class GltfActivity extends AppCompatActivity {
             });
   }
 
+    private void updateLine(LineRenderable line) {
+        Vector3 start = line.startNode.getWorldPosition();
+        Vector3 end = line.endNode.getWorldPosition();
+        float distance = Vector3.subtract(end, start).length();
+
+        // Cập nhật vị trí và độ dài của đoạn thẳng
+        line.lineNode.setWorldPosition(Vector3.add(start, end).scaled(.5f));
+        line.lineNode.setWorldRotation(Quaternion.lookRotation(Vector3.subtract(end, start), Vector3.up()));
+
+        // Tạo lại hình trụ với chiều dài mới
+        MaterialFactory.makeOpaqueWithColor(this, new Color(android.graphics.Color.RED))
+                .thenAccept(material -> {
+
+                    ModelRenderable modelRenderable = ShapeFactory.makeCube(
+                            new Vector3(.01f, .01f, distance),
+                            Vector3.zero(), material);
+
+                    AnchorNode lineNode = new AnchorNode();
+                    lineNode.setRenderable(modelRenderable);
+                    lineNode.setParent(arFragment.getArSceneView().getScene());
+                    lineNode.setWorldPosition(Vector3.add(start, end).scaled(.5f));
+                    lineNode.setWorldRotation(Quaternion.lookRotation(Vector3.subtract(end, start), Vector3.up()));
+
+                    // Lưu thông tin về đoạn thẳng
+                    line.lineNode.setRenderable(modelRenderable);
+
+                    // Tạo AnchorNode cho BillboardNode (văn bản)
+                    AnchorNode textNode = new AnchorNode();
+                    textNode.setParent(arFragment.getArSceneView().getScene());
+                    textNode.setWorldPosition(Vector3.add(start, end).scaled(.5f)); // Đặt vị trí giữa hai anchor
+
+                    // Tạo BillboardNode để chứa văn bản
+                    ViewRenderable.builder()
+                            .setView(this, R.layout.text_layout) // layout của văn bản
+                            .build()
+                            .thenAccept(viewRenderable -> {
+                                // Đặt văn bản vào BillboardNode
+                                Node textView = new Node();
+                                textView.setParent(textNode);
+                                textView.setRenderable(viewRenderable);
+
+                                // Đặt văn bản cho khoảng cách giữa hai anchor
+                                TextView distanceTextView = viewRenderable.getView().findViewById(R.id.distanceTextView);
+                                distanceTextView.setText(String.format("%.2f meters", distance));
+                            });
+                });
+    }
+
     private void removeAllAnchorNodes() {
         // Lặp qua tất cả các node trong Scene và xoá các AnchorNode
         for (Node node : previewAnchors) {
@@ -359,6 +427,24 @@ public class GltfActivity extends AppCompatActivity {
         // Tính toán khoảng cách giữa hai anchor
         float distance = Vector3.subtract(end, start).length();
 
+        // Tạo AnchorNode cho hai anchor
+        AnchorNode anchorNode1 = new AnchorNode(anchor1);
+        AnchorNode anchorNode2 = new AnchorNode(anchor2);
+
+        // Thêm các node vào Scene
+        arFragment.getArSceneView().getScene().addChild(anchorNode1);
+        arFragment.getArSceneView().getScene().addChild(anchorNode2);
+
+        // Tạo TransformableNode để cho phép di chuyển các anchor
+        TransformableNode transformableNode1 = new TransformableNode(arFragment.getTransformationSystem());
+        transformableNode1.setParent(anchorNode1);
+        arFragment.getArSceneView().getScene().addChild(transformableNode1);
+
+        TransformableNode transformableNode2 = new TransformableNode(arFragment.getTransformationSystem());
+        transformableNode2.setParent(anchorNode2);
+        arFragment.getArSceneView().getScene().addChild(transformableNode2);
+
+
         // Tạo AnchorNode cho đoạn thẳng
         MaterialFactory.makeOpaqueWithColor(this, new Color(android.graphics.Color.RED))
                 .thenAccept(
@@ -372,6 +458,10 @@ public class GltfActivity extends AppCompatActivity {
                             lineNode.setParent(arFragment.getArSceneView().getScene());
                             lineNode.setWorldPosition(Vector3.add(start, end).scaled(.5f));
                             lineNode.setWorldRotation(Quaternion.lookRotation(Vector3.subtract(end, start), Vector3.up()));
+
+                            // Lưu thông tin về đoạn thẳng
+                            LineRenderable line = new LineRenderable(anchorNode1, anchorNode2, lineNode, modelRenderable);
+                            lines.add(line);
 
                             // Tạo AnchorNode cho BillboardNode (văn bản)
                             AnchorNode textNode = new AnchorNode();
@@ -392,6 +482,10 @@ public class GltfActivity extends AppCompatActivity {
                                         TextView distanceTextView = viewRenderable.getView().findViewById(R.id.distanceTextView);
                                         distanceTextView.setText(String.format("%.2f meters", distance));
                                     });
+
+                            // Lắng nghe sự kiện di chuyển của TransformableNode
+                            transformableNode1.setOnTapListener((hitTestResult, motionEvent) -> updateLine(line));
+                            transformableNode2.setOnTapListener((hitTestResult, motionEvent) -> updateLine(line));
                         });
     }
 
