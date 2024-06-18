@@ -199,11 +199,15 @@ public class GltfActivity extends AppCompatActivity {
                               }
                       );
 
-              // If there are two anchors, draw a line between them
-              if (anchors.size() == 2) {
-//                drawLine(anchors.get(0), anchors.get(1));
-                  drawLineWithText(anchors.get(0), anchors.get(1));
+              for (int i = 0; i < anchors.size() - 1; i++) {
+                  drawLineWithText(anchors.get(i), anchors.get(i + 1));
               }
+
+              // If there are two anchors, draw a line between them
+//              if (anchors.size() == 2) {
+////                drawLine(anchors.get(0), anchors.get(1));
+//                  drawLineWithText(anchors.get(0), anchors.get(1));
+//              }
           }
 
           @Override
