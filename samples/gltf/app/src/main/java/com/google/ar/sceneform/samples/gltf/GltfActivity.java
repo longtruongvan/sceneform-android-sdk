@@ -176,7 +176,7 @@ public class GltfActivity extends AppCompatActivity {
 
               Color color = colors.get(nextColor);
               nextColor++;
-              for (int i = 0; i < renderable.getSubmeshCount(); ++i) {
+              for (int i = 0; i < renderable.getSubmeshCount() -1; ++i) {
                   Material material = renderable.getMaterial(i);
                   material.setFloat4("baseColorFactor", color);
               }
@@ -259,9 +259,12 @@ public class GltfActivity extends AppCompatActivity {
                       );
 
               // If there are two anchors, draw a line between them
-              if (anchors.size() == 2) {
-//                drawLine(anchors.get(0), anchors.get(1));
-                  drawLineWithText(anchors.get(0), anchors.get(1));
+//              if (anchors.size() == 2) {
+////                drawLine(anchors.get(0), anchors.get(1));
+//                  drawLineWithText(anchors.get(0), anchors.get(1));
+//              }
+              for (int i = 0; i < anchors.size() - 1; i++) {
+                  drawLineWithText(anchors.get(i), anchors.get(i + 1));
               }
           }
       });

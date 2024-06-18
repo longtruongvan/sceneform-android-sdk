@@ -3,7 +3,7 @@
     android:id="@+id/distanceTextView"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
-    android:textSize="18sp"
+    android:textSize="10sp"
     android:textColor="@android:color/white"
     android:background="@android:color/black"
     android:padding="8dp"
