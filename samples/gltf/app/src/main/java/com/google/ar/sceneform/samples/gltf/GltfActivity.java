@@ -142,8 +142,7 @@ public class GltfActivity extends AppCompatActivity {
     ModelRenderable.builder()
         .setSource(
             this,
-            Uri.parse(
-                "https://storage.googleapis.com/ar-answers-in-search-models/static/Tiger/model.glb"))
+            R.raw.anchor)
         .setIsFilamentGltf(true)
         .build()
         .thenAccept(
@@ -187,9 +186,9 @@ public class GltfActivity extends AppCompatActivity {
               model.setParent(anchorNode);
               model.setRenderable(renderable);
 
-              model.setWorldScale(new Vector3(0.3f, 0.3f, 0.3f)); // Thiết lập kích thước ban đầu
-              model.getScaleController().setMinScale(0.1f); // Thiết lập kích thước tối thiểu
-              model.getScaleController().setMaxScale(1.0f); // Thiết lập kích thước tối đa
+              model.setWorldScale(new Vector3(0.01f, 0.01f, 0.01f)); // Thiết lập kích thước ban đầu
+              model.getScaleController().setMinScale(0.01f); // Thiết lập kích thước tối thiểu
+              model.getScaleController().setMaxScale(0.02f); // Thiết lập kích thước tối đa
 
               arFragment.getArSceneView().getScene().addChild(anchorNode);
 
@@ -246,9 +245,9 @@ public class GltfActivity extends AppCompatActivity {
               model.setParent(anchorNode);
               model.setRenderable(renderable);
 
-              model.setWorldScale(new Vector3(0.3f, 0.3f, 0.3f)); // Thiết lập kích thước ban đầu
-              model.getScaleController().setMinScale(0.1f); // Thiết lập kích thước tối thiểu
-              model.getScaleController().setMaxScale(1.0f); // Thiết lập kích thước tối đa
+              model.setWorldScale(new Vector3(0.01f, 0.01f, 0.01f)); // Thiết lập kích thước ban đầu
+              model.getScaleController().setMinScale(0.01f); // Thiết lập kích thước tối thiểu
+              model.getScaleController().setMaxScale(0.02f); // Thiết lập kích thước tối đa
 
               arFragment.getArSceneView().getScene().addChild(anchorNode);
 
